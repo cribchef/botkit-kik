@@ -31,10 +31,19 @@ module.exports = function(Botkit, config) {
       }
 
       const kikBot = new kik(bot.config); 
+
       kikBot.updateBotConfiguration();
+
+      kikBot.onTextMessage('message', (message, next) => {
+        let bot = controller.spawn({});
+        controller.ingest(bot, message, null);
+        next();
+      })
+
       // here is where you make the API call to SEND a message
       // the message object should be in the proper format already
       bot.send = function(message, cb) {
+          kikBot.send(message, message.username);
           console.log('SEND: ', message);
           cb();
       }
@@ -43,7 +52,9 @@ module.exports = function(Botkit, config) {
       // and ensures that the reply has the appropriate fields to appear as a reply
       bot.reply = function(src, resp, cb) {
         kikBot.onTextMessage((kikMsg) => {
-
+          if(typeof(kikMsg.body) === 'string'){
+            kikMsg.reply(resp)
+          }
         });
         if (typeof(resp) == 'string') {
           resp = {
@@ -71,7 +82,6 @@ module.exports = function(Botkit, config) {
           }
           cb();
       };
-
       return bot;
 
   })
@@ -82,6 +92,9 @@ module.exports = function(Botkit, config) {
   controller.middleware.normalize.use(function(bot, message, next) {
 
     console.log('NORMALIZE', message);
+    message.user =  message.from;
+    message.text = message.body;
+    message.channel = message.chatId;
     next();
 
   });
@@ -100,14 +113,8 @@ module.exports = function(Botkit, config) {
 
   // provide a way to receive messages - normally by handling an incoming webhook as below!
   controller.handleWebhookPayload = function(req, res) {
-      var payload = req.body;
-
-      var bot = controller.spawn({});
-      controller.ingest(bot, payload, res);
-
-      res.status(200);
+    kikBot.incoming(req, res);
   };
-
 
   return controller;
 
